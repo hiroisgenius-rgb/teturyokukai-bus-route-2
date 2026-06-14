@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ROUTE OPTIMIZER - CENTRAL TRANSPORT CONTROL</title>
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Noto+Sans+JP:wght@500;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* 自衛隊・軍用端末のタクティカルカラー（OD色ベース） */
+            --sdf-bg: #0b110d;         /* 作戦室モニター：超暗緑色 */
+            --sdf-card: #141f18;       /* コンソール背景：タクティカルOD */
+            --sdf-green: #22c55e;      /* 標準インジケータ：高輝度グリーン */
+            --sdf-dim-green: #3b5944;  /* 構造線・固定ラベル：減光グリーン */
+            --sdf-amber: #f59e0b;      /* 警告・索敵アラート：アンバー（琥珀色） */
+            --sdf-text: #e2e8f0;       /* データ文字：微発光ホワイト */
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Share Tech Mono', 'Noto Sans JP', sans-serif;
+            background-color: var(--sdf-bg);
+            color: var(--sdf-text);
+            line-height: 1.6;
+            padding: 30px 20px;
+            letter-spacing: 0.08em;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        /* 統合運用システム風ヘッダー */
+        header {
+            margin-bottom: 35px;
+            background: var(--sdf-card);
+            border: 1px solid var(--sdf-dim-green);
+            border-left: 6px solid var(--sdf-green);
+            padding: 20px;
+            position: relative;
+        }
+
+        header::after {
+            content: "CENTRAL TRANSPORT CONTROL // JGSDF";
+            position: absolute;
+            top: 8px;
+            right: 15px;
+            font-size: 10px;
+            color: var(--sdf-green);
+            font-weight: bold;
+            letter-spacing: 0.15em;
+        }
+
+        header h1 {
+            font-size: 24px;
+            font-weight: 900;
+            color: #ffffff;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            margin-bottom: 6px;
+        }
+
+        header h1 span.green {
+            color: var(--sdf-green);
+        }
+
+        header p {
+            font-size: 11px;
+            color: var(--sdf-dim-green);
+            font-weight: 700;
+        }
+
+        /* パラメータ入力カード */
+        .config-card {
+            background: var(--sdf-card);
+            border: 1px solid var(--sdf-dim-green);
+            padding: 24px;
+            margin-bottom: 24px;
+            position: relative;
+        }
+
+        /* レーダースコープ風のコーナーマーク */
+        .config-card::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; width: 12px; height: 12px;
+            border-top: 2px solid var(--sdf-green);
+            border-left: 2px solid var(--sdf-green);
+        }
+        .config-card::after {
+            content: "";
+            position: absolute;
+            bottom: 0; right: 0; width: 12px; height: 12px;
+            border-bottom: 2px solid var(--sdf-green);
+            border-right: 2px solid var(--sdf-green);
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        label {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--sdf-green);
+            letter-spacing: 0.1em;
+        }
+
+        .input-row {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        input[type="time"] {
+            padding: 10px 14px;
+            font-size: 16px;
+            font-family: 'Share Tech Mono', sans-serif;
+            background-color: var(--sdf-bg);
+            border: 1px solid var(--sdf-dim-green);
+            color: var(--sdf-green);
+            font-weight: bold;
+            outline: none;
+            transition: all 0.2s;
+            flex: 1;
+            max-width: 180px;
+            border-radius: 0; /* 実用重視の角丸排除 */
+        }
+
+        input[type="time"]:focus {
+            border-color: var(--sdf-green);
+            background-color: rgba(34, 197, 94, 0.05);
+        }
+
+        .btn-preset {
+            background-color: transparent;
+            color: var(--sdf-text);
+            border: 1px solid var(--sdf-dim-green);
+            padding: 9px 16px;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+            letter-spacing: 0.1em;
+        }
+
+        .btn-preset:hover {
+            border-color: var(--sdf-green);
+            color: var(--sdf-green);
+            background-color: rgba(34, 197, 94, 0.03);
+        }
+
+        .btn-submit {
+            background: var(--sdf-green);
+            color: var(--sdf-bg);
+            border: none;
+            padding: 14px 28px;
+            font-family: 'Share Tech Mono', sans-serif;
+            font-size: 13px;
+            font-weight: 900;
+            cursor: pointer;
+            width: 100%;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+        }
+
+        .btn-submit:hover {
+            background: #1ca850;
+        }
+
+        .results-section {
+            display: none;
+        }
+
+        .section-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--sdf-green);
+            margin-bottom: 12px;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            border-left: 3px solid var(--sdf-green);
+            padding-left: 8px;
+        }
+
+        /* 最適経理解析結果 */
+        .best-route-card {
+            background: var(--sdf-card);
+            border: 1px solid var(--sdf-green);
+            padding: 24px;
+            margin-bottom: 30px;
+            min-height: 230px;
+        }
+
+        .route-stream-container {
+            font-family: 'Share Tech Mono', monospace;
+            font-size: 13px;
+        }
+
+        /* コンソール風カーソル */
+        .typing::after {
+            content: "█";
+            animation: sdfBlink 0.8s infinite;
+            color: var(--sdf-green);
+        }
+
+        @keyframes sdfBlink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+
+        .stream-line {
+            margin-bottom: 10px;
+            border-bottom: 1px solid rgba(59, 89, 68, 0.3);
+            padding-bottom: 6px;
+        }
+
+        .stream-line:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+            padding-bottom: 0;
+        }
+
+        .stream-line.header-row {
+            font-size: 15px;
+            font-weight: 700;
+            color: #ffffff;
+            border-bottom: 1px solid var(--sdf-dim-green);
+            padding-bottom: 10px;
+            margin-bottom: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .stream-line.header-row .status-badge {
+            background: rgba(34, 197, 94, 0.15);
+            color: var(--sdf-green);
+            border: 1px solid var(--sdf-green);
+            padding: 2px 8px;
+            font-size: 11px;
+            letter-spacing: 0.1em;
+            font-weight: bold;
+        }
+
+        .stream-line .tag {
+            color: var(--sdf-dim-green);
+            display: inline-block;
+            width: 150px;
+            font-weight: bold;
+        }
+
+        .stream-line .data {
+            color: #ffffff;
+            font-weight: 700;
+        }
+
+        .stream-line .highlight {
+            color: var(--sdf-amber);
+        }
+
+        /* 計算ログ一覧（テーブル表示） */
+        .table-container {
+            background: var(--sdf-card);
+            border: 1px solid var(--sdf-dim-green);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            font-size: 12px;
+        }
+
+        th {
+            background-color: rgba(20, 31, 24, 0.9);
+            color: var(--sdf-dim-green);
+            font-weight: 700;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--sdf-dim-green);
+            letter-spacing: 0.05em;
+        }
+
+        td {
+            padding: 12px 16px;
+            border-bottom: 1px solid rgba(59, 89, 68, 0.2);
+            color: var(--sdf-text);
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr.rank-locked td {
+            color: #ffffff;
+            background-color: rgba(34, 197, 94, 0.05);
+        }
+
+        .no-route-msg {
+            border: 1px solid var(--sdf-amber);
+            color: var(--sdf-amber);
+            padding: 16px;
+            text-align: center;
+            font-size: 13px;
+            background: rgba(245, 158, 11, 0.03);
+            font-weight: bold;
+            letter-spacing: 0.1em;
+        }
+
+        @media (max-width: 600px) {
+            .input-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            input[type="time"] {
+                max-width: none;
+            }
+            th, td {
+                padding: 10px 8px;
+                font-size: 11px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1><span class="green">TACTICAL</span> ROUTE OPTIMIZER</h1>
+        <p>COMBAT INTELLIGENCE SYSTEM // OPERATIONAL TRANSPORT SIMULATION // MISSION: OPTIMAL RETURN</p>
+    </header>
+
+    <div class="config-card">
+        <div class="form-group">
+            <label>[INPUT] INITIALIZE DEPARTURE TIME PARAMETER</label>
+            <div class="input-row">
+                <input type="time" id="departure-time" required>
+                <button type="button" class="btn-preset" id="btn-now-plus-4">CALIBRATE RECENT TIME</button>
+            </div>
+        </div>
+        <button type="button" class="btn-submit" onclick="onCalculate()">EXECUTE ROUTE CALCULATION</button>
+    </div>
+
+    <div id="results-section" class="results-section">
+        <div class="section-title">Analysis Result (Primary Candidate)</div>
+        <div class="best-route-card">
+            <div id="stream-target" class="route-stream-container"></div>
+        </div>
+
+        <div class="section-title" style="margin-top: 35px;">Alternative Route Contingency Dossier</div>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>DATA_ID</th>
+                        <th>STATION</th>
+                        <th>BUS_LINE</th>
+                        <th>YOYOGI_DEP</th>
+                        <th>BUS_DEP</th>
+                        <th>ETA_HOME</th>
+                        <th>DURATION</th>
+                    </tr>
+                </thead>
+                <tbody id="ranking-table-body">
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <div id="no-results-section" class="results-section">
+        <div class="no-route-msg">⚠️ SYSTEM ALERT: NO COMPATIBLE TRANSPORT TIMETABLE FOUND. RE-EVALUATE PARAMETERS.</div>
+    </div>
+</div>
+
+<script>
+    // データ定義
+    const yamanoteTimes = [
+        "04:44","05:04","05:21","05:39","05:51",
+        "06:01","06:10","06:19","06:28","06:32","06:36","06:41","06:47","06:51","06:54","06:57",
+        "07:00","07:03","07:06","07:10","07:13","07:17","07:20","07:23","07:26","07:29",
+        "07:32","07:35","07:38","07:42","07:45","07:48","07:51","07:54","07:58",
+        "08:01","08:04","08:07","08:10","08:12","08:15","08:18","08:21","08:24",
+        "08:27","08:30","08:33","08:36","08:39","08:42","08:46","08:49","08:52","08:55","08:59",
+        "09:02","09:06","09:09","09:12","09:15","09:18","09:21","09:24","09:27",
+        "09:30","09:33","09:36","09:39","09:41","09:45","09:48","09:51","09:55","09:59",
+        "10:02","10:05","10:09","10:12","10:16","10:20","10:24","10:28",
+        "10:33","10:37","10:42","10:45","10:49","10:54","10:59",
+        "11:04","11:09","11:14","11:19","11:24","11:29","11:34","11:39","11:44","11:49","11:54","11:59",
+        "12:04","12:09","12:14","12:19","12:24","12:29","12:34","12:39","12:44","12:49","12:54","12:59",
+        "13:04","13:09","13:14","13:19","13:24","13:29","13:34","13:39","13:44","13:49","13:54","13:59",
+        "14:04","14:09","14:14","14:19","14:24","14:29","14:34","14:39","14:44","14:49","14:54","14:59",
+        "15:04","15:09","15:14","15:19","15:24","15:29","15:34","15:39","15:44","15:49","15:54","15:59",
+        "16:04","16:09","16:14","16:19","16:24","16:29","16:34","16:39","16:44","16:49","16:54","16:58",
+        "17:02","17:06","17:11","17:16","17:21","17:26","17:31","17:36","17:41","17:46","17:50","17:53","17:57",
+        "18:01","18:06","18:10","18:15","18:19","18:24","18:28","18:33","18:37","18:40","18:45","18:49","18:54","18:58",
+        "19:02","19:05","19:10","19:15","19:19","19:23","19:27","19:31","19:36","19:40","19:44","19:49","19:55","19:59",
+        "20:03","20:07","20:12","20:17","20:22","20:28","20:33","20:39","20:45","20:50","20:53","20:58",
+        "21:03","21:08","21:14","21:20","21:27","21:33","21:37","21:41","21:47","21:53","21:59",
+        "22:05","22:12","22:18","22:25","22:32","22:38","22:43","22:48","22:54",
+        "23:00","23:07","23:14","23:21","23:27","23:34","23:41","23:48","23:55",
+        "00:02","00:07","00:16","00:22","00:28","00:34","00:43"
+    ];
+
+    const travelTime = {"SHIBUYA": 4, "EBISU": 7, "MEGURO": 10};
+
+    const busTimetable = {
+        "MEGURO": {
+            "路線": "黒07",
+            "times": ["06:40","07:04","07:23","07:42","08:03","08:20","08:38","08:57","09:16","09:35","09:55","10:20","10:43","11:06","11:31","11:56","12:20","12:44","13:08","13:33","13:58","14:23","14:48","15:13","15:38","16:03","16:29","16:55","17:21","17:47","18:13","18:38","19:03","19:30","20:00","20:30","21:05","21:45","22:25"],
+            "所要時間": 25, "最低待ち時間": 5
+        },
+        "EBISU": {
+            "路線": "恵32",
+            "times": ["06:42","06:55","07:08","07:21","07:33","07:45","07:57","08:10","08:23","08:36","08:49","09:01","09:13","09:25","09:37","09:49","10:01","10:13","10:25","10:37","10:49","11:01","11:14","11:27","11:40","11:55","12:10","12:25","12:40","12:55","13:10","13:25","13:40","13:55","14:10","14:25","14:40","14:54","15:08","15:22","15:36","15:50","16:04","16:16","16:28","16:40","16:52","17:04","17:16","17:28","17:40","17:52","18:04","18:16","18:28","18:40","18:52","19:04","19:16","19:28","19:40","19:52","20:04","20:16","20:28","20:40","20:52","21:05","21:20","21:35","21:50","22:10","22:32","22:55"],
+            "所要時間": 30, "最低待ち時間": 5
+        },
+        "SHIBUYA": {
+            "路線": "渋11",
+            "times": ["06:35","06:47","06:59","07:11","07:23","07:35","07:47","07:59","08:14","08:29","08:44","08:59","09:14","09:29","09:44","10:29","11:14","11:59","12:44","13:29","14:01","14:30","14:45","15:00","15:15","15:30","15:45","16:00","16:15","16:30","16:45","17:00","17:15","17:30","17:45","18:00","18:15","18:30","18:45","19:00","19:20","19:40","20:00","20:20","20:40","21:00","21:20","21:40","22:00"],
+            "所要時間": 30, "最低待ち時間": 9
+        }
+    };
+
+    const baseDateStr = "2026-04-08 ";
+    let typingTimer = null;
+
+    window.addEventListener('DOMContentLoaded', () => {
+        setDefaultTime();
+        document.getElementById('btn-now-plus-4').addEventListener('click', setDefaultTime);
+    });
+
+    function setDefaultTime() {
+        const now = new Date();
+        now.setMinutes(now.getMinutes() + 4);
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        document.getElementById('departure-time').value = `${hours}:${minutes}`;
+    }
+
+    function parseDateTime(timeStr) {
+        return new Date(baseDateStr + timeStr);
+    }
+
+    function formatTime(date) {
+        return String(date.getHours()).padStart(2, '0') + ":" + String(date.getMinutes()).padStart(2, '0');
+    }
+
+    function onCalculate() {
+        if (typingTimer) clearTimeout(typingTimer);
+
+        const departureStr = document.getElementById('departure-time').value;
+        if (!departureStr) return;
+
+        const departureDt = parseDateTime(departureStr);
+        let results = [];
+
+        for (const [station, busInfo] of Object.entries(busTimetable)) {
+            const trainMin = travelTime[station];
+            
+            for (const tStr of yamanoteTimes) {
+                const trainDt = parseDateTime(tStr);
+                
+                if (trainDt < departureDt) continue;
+
+                const arrivalDt = new Date(trainDt.getTime() + trainMin * 60000);
+                const minBusDt = new Date(arrivalDt.getTime() + busInfo["最低待ち時間"] * 60000);
+
+                const nextBusStr = busInfo["times"].find(btStr => parseDateTime(btStr) >= minBusDt);
+
+                if (nextBusStr) {
+                    const nextBusDt = parseDateTime(nextBusStr);
+                    const homeDt = new Date(nextBusDt.getTime() + busInfo["所要時間"] * 60000);
+                    const totalMin = Math.round((homeDt.getTime() - departureDt.getTime()) / 60000);
+
+                    results.push({
+                        station: station,
+                        busRoute: busInfo["路線"],
+                        trainDep: tStr,
+                        stationArr: formatTime(arrivalDt),
+                        busDep: nextBusStr,
+                        homeArr: formatTime(homeDt),
+                        totalMin: totalMin
+                    });
+                }
+            }
+        }
+
+        results.sort((a, b) => {
+            if (a.totalMin !== b.totalMin) return a.totalMin - b.totalMin;
+            return a.homeArr.localeCompare(b.homeArr);
+        });
+
+        renderResults(results);
+    }
+
+    function typeWriterEffect(element, htmlContent, speed, callback) {
+        element.classList.add('typing');
+        element.innerHTML = "";
+        let i = 0;
+        
+        function type() {
+            if (i < htmlContent.length) {
+                if (htmlContent.substr(i, 1) === '<') {
+                    let tagCloseIdx = htmlContent.indexOf('>', i);
+                    element.innerHTML += htmlContent.substring(i, tagCloseIdx + 1);
+                    i = tagCloseIdx + 1;
+                } else {
+                    element.innerHTML += htmlContent.charAt(i);
+                    i++;
+                }
+                typingTimer = setTimeout(type, speed);
+            } else {
+                element.classList.remove('typing');
+                if (callback) callback();
+            }
+        }
+        type();
+    }
+
+    function renderResults(results) {
+        const resultsSection = document.getElementById('results-section');
+        const noResultsSection = document.getElementById('no-results-section');
+        const streamTarget = document.getElementById('stream-target');
+        const tableBody = document.getElementById('ranking-table-body');
+
+        tableBody.innerHTML = '';
+        streamTarget.innerHTML = '';
+
+        if (results.length === 0) {
+            resultsSection.style.display = 'none';
+            noResultsSection.style.display = 'block';
+            return;
+        }
+
+        noResultsSection.style.display = 'none';
+        resultsSection.style.display = 'block';
+
+        const best = results[0];
+        
+        // 自衛隊システムをイメージした無骨なコンソール出力
+        const streamHtmlContent = `
+            <div class="stream-line header-row"><span>SYS_STATUS: CALCULATION_COMPLETE</span><span class="status-badge">OPTIMAL LOCKED</span></div>
+            <div class="stream-line"><span class="tag">> PRIMARY ROUTE :</span><span class="data">${best.station} STATION SEQUENCE</span></div>
+            <div class="stream-line"><span class="tag">> MISSION DURATION :</span><span class="data highlight">${best.totalMin} MINUTES</span></div>
+            <div class="stream-line"><span class="tag">> PHASE 01 (RAIL) :</span><span>代々木station発 <span class="data">${best.trainDep}</span> [JR YAMANOTE LINE]</span></div>
+            <div class="stream-line"><span class="tag">> PHASE 02 (BUS)  :</span><span>${best.station}station着 <span class="data">${best.stationArr}</span> / バス発 <span class="data">${best.busDep}</span> [${best.busRoute}]</span></div>
+            <div class="stream-line" style="border:none; margin-top:8px;"><span class="tag" style="color:var(--sdf-green);">> EST ARRIVAL TIME :</span><span class="data highlight" style="font-size:16px; color:var(--sdf-amber);">${best.homeArr} (SYS_READY)</span></div>
+        `;
+
+        typeWriterEffect(streamTarget, streamHtmlContent, 10, () => {
+            const displayResults = results.slice(0, 5);
+            displayResults.forEach((r, idx) => {
+                const tr = document.createElement('tr');
+                if (idx === 0) tr.className = 'rank-locked';
+                tr.innerHTML = `
+                    <td style="font-weight:bold; color:${idx === 0 ? 'var(--sdf-green)' : 'var(--sdf-dim-green)'};">TG_${String(idx + 1).padStart(2, '0')}</td>
+                    <td style="font-weight:bold; color:#fff;">${r.station} STATION</td>
+                    <td><span style="color:var(--sdf-amber); font-weight:bold;">${r.busRoute}</span></td>
+                    <td>${r.trainDep}</td>
+                    <td>${r.busDep}</td>
+                    <td style="font-weight:bold; color:var(--sdf-green);">${r.homeArr}</td>
+                    <td style="font-weight:bold;">${r.totalMin} MIN</td>
+                `;
+                tableBody.appendChild(tr);
+            });
+        });
+    }
+</script>
+
+</body>
+</html>
