@@ -1,19 +1,19 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ROUTE OPTIMIZER - CENTRAL TRANSPORT CONTROL</title>
-    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Noto+Sans+JP:wght@500;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
     <style>
         :root {
-            /* 自衛隊・軍用端末のタクティカルカラー（OD色ベース） */
-            --sdf-bg: #0b110d;         /* 作戦室モニター：超暗緑色 */
-            --sdf-card: #141f18;       /* コンソール背景：タクティカルOD */
-            --sdf-green: #22c55e;      /* 標準インジケータ：高輝度グリーン */
-            --sdf-dim-green: #3b5944;  /* 構造線・固定ラベル：減光グリーン */
-            --sdf-amber: #f59e0b;      /* 警告・索敵アラート：アンバー（琥珀色） */
-            --sdf-text: #e2e8f0;       /* データ文字：微発光ホワイト */
+            /* JSDF Tactical Console Colors (OD Base) */
+            --sdf-bg: #0b110d;         /* Ultra dark green */
+            --sdf-card: #141f18;       /* Tactical OD green */
+            --sdf-green: #22c55e;      /* High-brightness indicator */
+            --sdf-dim-green: #3b5944;  /* Structural lines & labels */
+            --sdf-amber: #f59e0b;      /* Alert / Warning */
+            --sdf-text: #e2e8f0;       /* Data text */
         }
 
         * {
@@ -23,7 +23,7 @@
         }
 
         body {
-            font-family: 'Share Tech Mono', 'Noto Sans JP', sans-serif;
+            font-family: 'Share Tech Mono', monospace;
             background-color: var(--sdf-bg);
             color: var(--sdf-text);
             line-height: 1.6;
@@ -36,7 +36,7 @@
             margin: 0 auto;
         }
 
-        /* 統合運用システム風ヘッダー */
+        /* Combined Operational System Header */
         header {
             margin-bottom: 35px;
             background: var(--sdf-card);
@@ -71,12 +71,12 @@
         }
 
         header p {
-            font-size: 11px;
+            font-size: 10px;
             color: var(--sdf-dim-green);
             font-weight: 700;
         }
 
-        /* パラメータ入力カード */
+        /* Parameter Input Card */
         .config-card {
             background: var(--sdf-card);
             border: 1px solid var(--sdf-dim-green);
@@ -85,7 +85,7 @@
             position: relative;
         }
 
-        /* レーダースコープ風のコーナーマーク */
+        /* Radar-scope Corner Marks */
         .config-card::before {
             content: "";
             position: absolute;
@@ -134,7 +134,7 @@
             transition: all 0.2s;
             flex: 1;
             max-width: 180px;
-            border-radius: 0; /* 実用重視の角丸排除 */
+            border-radius: 0;
         }
 
         input[type="time"]:focus {
@@ -192,7 +192,7 @@
             padding-left: 8px;
         }
 
-        /* 最適経理解析結果 */
+        /* Tactical Stream Log Output */
         .best-route-card {
             background: var(--sdf-card);
             border: 1px solid var(--sdf-green);
@@ -206,7 +206,6 @@
             font-size: 13px;
         }
 
-        /* コンソール風カーソル */
         .typing::after {
             content: "█";
             animation: sdfBlink 0.8s infinite;
@@ -255,7 +254,7 @@
         .stream-line .tag {
             color: var(--sdf-dim-green);
             display: inline-block;
-            width: 150px;
+            width: 170px;
             font-weight: bold;
         }
 
@@ -268,7 +267,7 @@
             color: var(--sdf-amber);
         }
 
-        /* 計算ログ一覧（テーブル表示） */
+        /* Alternative Data Table */
         .table-container {
             background: var(--sdf-card);
             border: 1px solid var(--sdf-dim-green);
@@ -362,11 +361,11 @@
                 <thead>
                     <tr>
                         <th>DATA_ID</th>
-                        <th>STATION</th>
+                        <th>NODE_STATION</th>
                         <th>BUS_LINE</th>
                         <th>YOYOGI_DEP</th>
                         <th>BUS_DEP</th>
-                        <th>ETA_HOME</th>
+                        <th>ETA_BASE</th>
                         <th>DURATION</th>
                     </tr>
                 </thead>
@@ -382,7 +381,7 @@
 </div>
 
 <script>
-    // データ定義
+    // System Timetable Matrices
     const yamanoteTimes = [
         "04:44","05:04","05:21","05:39","05:51",
         "06:01","06:10","06:19","06:28","06:32","06:36","06:41","06:47","06:51","06:54","06:57",
@@ -546,13 +545,13 @@
 
         const best = results[0];
         
-        // 自衛隊システムをイメージした無骨なコンソール出力
+        // Tactical Console English-only Stream Matrix Layout
         const streamHtmlContent = `
             <div class="stream-line header-row"><span>SYS_STATUS: CALCULATION_COMPLETE</span><span class="status-badge">OPTIMAL LOCKED</span></div>
-            <div class="stream-line"><span class="tag">> PRIMARY ROUTE :</span><span class="data">${best.station} STATION SEQUENCE</span></div>
-            <div class="stream-line"><span class="tag">> MISSION DURATION :</span><span class="data highlight">${best.totalMin} MINUTES</span></div>
-            <div class="stream-line"><span class="tag">> PHASE 01 (RAIL) :</span><span>代々木station発 <span class="data">${best.trainDep}</span> [JR YAMANOTE LINE]</span></div>
-            <div class="stream-line"><span class="tag">> PHASE 02 (BUS)  :</span><span>${best.station}station着 <span class="data">${best.stationArr}</span> / バス発 <span class="data">${best.busDep}</span> [${best.busRoute}]</span></div>
+            <div class="stream-line"><span class="tag">> PRIMARY NODE :</span><span class="data">${best.station} HUB SEQUENCE</span></div>
+            <div class="stream-line"><span class="tag">> MISSION DURATION :</span><span class="data highlight">${best.totalMin} MINS</span></div>
+            <div class="stream-line"><span class="tag">> PHASE 01 (RAIL) :</span><span>DEP [YOYOGI] <span class="data">${best.trainDep}</span> [JR YAMANOTE LINE]</span></div>
+            <div class="stream-line"><span class="tag">> PHASE 02 (BUS)  :</span><span>ARR [${best.station}] <span class="data">${best.stationArr}</span> / DEP [BUS] <span class="data">${best.busDep}</span> [${best.busRoute}]</span></div>
             <div class="stream-line" style="border:none; margin-top:8px;"><span class="tag" style="color:var(--sdf-green);">> EST ARRIVAL TIME :</span><span class="data highlight" style="font-size:16px; color:var(--sdf-amber);">${best.homeArr} (SYS_READY)</span></div>
         `;
 
@@ -563,7 +562,7 @@
                 if (idx === 0) tr.className = 'rank-locked';
                 tr.innerHTML = `
                     <td style="font-weight:bold; color:${idx === 0 ? 'var(--sdf-green)' : 'var(--sdf-dim-green)'};">TG_${String(idx + 1).padStart(2, '0')}</td>
-                    <td style="font-weight:bold; color:#fff;">${r.station} STATION</td>
+                    <td style="font-weight:bold; color:#fff;">${r.station}</td>
                     <td><span style="color:var(--sdf-amber); font-weight:bold;">${r.busRoute}</span></td>
                     <td>${r.trainDep}</td>
                     <td>${r.busDep}</td>
